@@ -121,9 +121,9 @@ for tool_call in assistant_message.tool_calls:
 
 *The loop should stop when: (a) the LLM returns a response with no tool calls, OR (b) the MAX_TOOL_ROUNDS limit is reached. Describe how you will detect each condition and what you will return in each case.*
 
-```
-[your answer here]
-```
+The loop terminates under two conditions:
+1. No tool calls: Detected by checking if `not assistant_message.tool_calls` evaluates to True. When this happens, we break the loop and return the LLM's final text response.
+2. MAX_TOOL_ROUNDS reached: We wrap the loop in a `for _ in range(MAX_TOOL_ROUNDS):` or use a while loop with a counter. If the loop completes its final iteration without breaking, we return a graceful degradation message like "I've checked a few sources but want to make sure I don't give you conflicting advice. Could you clarify your question?" to prevent infinite hanging.
 
 ---
 
@@ -131,9 +131,7 @@ for tool_call in assistant_message.tool_calls:
 
 *Once the loop exits because there are no more tool calls, how do you extract the text content from the response object? What field holds the string you should return?*
 
-```
-[your answer here]
-```
+The final string response is stored in the `content` attribute of the message object. It can be accessed via `assistant_message.content` (which maps to `response.choices[0].message.content`). We should return this string directly to the user.
 
 ---
 
@@ -143,21 +141,15 @@ for tool_call in assistant_message.tool_calls:
 
 **Trace of a working agent turn (what tools were called and in what order):**
 
-```
 Query: "How should I care for my calathea?"
-Round 1 tool call: [tool name, args]
-Round 2 tool call: [tool name, args] (if any)
-Final response: [brief description]
-```
+Round 1 tool call: lookup_plant({"plant_name": "calathea"})
+Round 2 tool call: get_seasonal_conditions({}) 
+Final response: A tailored response combining the calathea's specific need for high humidity and moist soil with the current season's specific advice (warning about hot/dry air for summer and recommending extra misting).
 
 **What happens when you ask about a plant that isn't in the database?**
 
-```
-[describe the behavior you observed]
-```
+When asked about a missing plant (like a "Bonsai Tree"), the agent calls lookup_plant({"plant_name": "bonsai"}). The tool returns our programmed not-found JSON message. The LLM reads this internal message, gracefully informs the user that its specific database only covers 15 common houseplants, and offers to provide general plant care advice or look up a different plant. It doesn't crash or hallucinate fake data.
 
 **One thing about the tool call API that surprised you:**
 
-```
-[your answer here]
-```
+The strict ordering requirement for the message history. It isn't enough to just send the tool results back; you absolutely must append the exact assistant message containing the `tool_calls` array first. If you append the tool results directly after the user message, the API loses the context of why the tool was called and throws an error. The conversation history has to perfectly reflect the exact back-and-forth protocol.

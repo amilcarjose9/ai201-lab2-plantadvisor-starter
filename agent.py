@@ -103,29 +103,54 @@ def dispatch_tool(tool_name: str, tool_args: dict) -> str:
 def run_agent(user_message: str, history: list) -> str:
     """
     Run the plant care agent for one user turn and return its response.
-
-    TODO — Milestone 2:
-
-    The agent loop follows a specific pattern that you'll implement here. Read
-    specs/agent-loop-spec.md carefully before writing any code — understand the
-    full loop before implementing any part of it.
-
-    The loop works like this:
-      1. Build a messages list: system prompt + conversation history + new user message
-      2. Call the LLM with messages and TOOL_DEFINITIONS
-      3. If the response contains tool_calls:
-           a. Append the assistant message (with tool_calls) to messages
-           b. For each tool call: execute via dispatch_tool(), append the result
-           c. Call the LLM again with the updated messages
-           d. Repeat until no more tool_calls (or MAX_TOOL_ROUNDS is reached)
-      4. Return the final text response
-
-    Key details to get right:
-      - The assistant message must be appended BEFORE tool results
-      - Tool result messages use role="tool" with a tool_call_id field
-      - Append the assistant's message object directly (not just its content)
-      - The history format from Gradio: list of [user_message, assistant_message] pairs
-
-    Before writing code, complete specs/agent-loop-spec.md.
     """
-    return "🌱 Agent not yet implemented. Complete Milestone 2 to activate the Plant Advisor."
+    
+    # 1. Build the initial messages list
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    for user_msg, assistant_msg in history:
+        messages.append({"role": "user", "content": user_msg})
+        if assistant_msg:
+            messages.append({"role": "assistant", "content": assistant_msg})
+
+    messages.append({"role": "user", "content": user_message})
+
+    # 2. Start the tool calling loop
+    for _ in range(MAX_TOOL_ROUNDS):
+        response = _client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=messages,
+            tools=TOOL_DEFINITIONS,
+            tool_choice="auto",
+        )
+
+        assistant_message = response.choices[0].message
+
+        # Check Termination Condition A: The LLM has finished calling tools
+        if not assistant_message.tool_calls:
+            return assistant_message.content or "I'm sorry, I couldn't generate a final response. Please try asking your question again."
+
+        # The LLM wants to call tools. 
+        # MUST append the assistant message BEFORE the tool results.
+        messages.append(assistant_message)
+
+        # Execute all requested tools in this turn
+        for tool_call in assistant_message.tool_calls:
+            tool_name = tool_call.function.name
+            
+            try:
+                tool_args = json.loads(tool_call.function.arguments)
+            except json.JSONDecodeError:
+                tool_args = {}
+                
+            tool_result = dispatch_tool(tool_name, tool_args)
+
+            # Append the result of the tool back into the message history
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": tool_result,
+            })
+
+    # Check Termination Condition B: MAX_TOOL_ROUNDS hit
+    return "I've hit my maximum number of internal lookups for this question! To make sure I give you the best advice, could you try rephrasing your question or asking about one specific plant?"
