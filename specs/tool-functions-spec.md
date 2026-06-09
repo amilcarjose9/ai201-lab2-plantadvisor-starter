@@ -90,19 +90,13 @@ likely match for clean user input. Aliases are the broadest net, so they go last
 *Fill this in after implementing and running the app.*
 
 **Test: does `"devil's ivy"` return the pothos entry?**
-```
-[yes / no — if no, describe what happened]
-```
+yes
 
 **Test: does `"SNAKE PLANT"` return the snake plant entry?**
-```
-[yes / no — if no, describe what happened]
-```
+yes
 
 **One edge case you discovered while implementing:**
-```
-[your answer here]
-```
+Handling empty strings or null inputs. If the LLM hallucinates an empty tool call or passes an empty string, calling `.strip().lower()` on it might lead to useless processing or errors. Adding an early guard clause `if not plant_name:` at the top of the function catches this immediately and returns a safe "not found" fallback without breaking the loop.
 
 ---
 
@@ -182,13 +176,9 @@ The full season dict from `_season_data`, plus a `detected_season` boolean. Exam
 *Fill this in after testing.*
 
 **Test: does calling with `season=None` return the correct season for the current month?**
-```
-Current month: [month]
-Expected season: [season]
-Returned season: [season]
-```
+Current month: 6 (June)
+Expected season: summer
+Returned season: summer
 
 **Test: does calling with `season="winter"` return winter data regardless of the current month?**
-```
-[yes / no]
-```
+yes
